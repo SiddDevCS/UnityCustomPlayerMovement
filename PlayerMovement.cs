@@ -2,7 +2,7 @@ using UnityEngine;
 
 public class PlayerMovement : MonoBehaviour
 {
-    // variables
+    // Variables
     public CharacterController controller;
     public Camera playerCamera;
     public float speed = 12f;
@@ -23,33 +23,33 @@ public class PlayerMovement : MonoBehaviour
     private float sprintTimeRemaining;
     private bool isSprinting;
 
-    // before game starts
     void Start()
     {
         sprintTimeRemaining = sprintDuration;
         isSprinting = false;
-        playerCamera.fieldOfView = normalFOV; // Set the initial FOV
+        playerCamera.fieldOfView = normalFOV; // Set initial FOV
     }
 
     void Update()
     {
+        // Check if player is grounded
         isGrounded = Physics.CheckSphere(groundCheck.position, groundDistance, groundMask);
 
         if (isGrounded && velocity.y < 0)
         {
-            velocity.y = -2f;
+            velocity.y = -0.1f; // Prevent unnatural snapping to the ground
         }
 
+        // Get movement input
         float x = Input.GetAxis("Horizontal");
         float z = Input.GetAxis("Vertical");
 
-        // Calculate the movement direction relative to the camera
-        Vector3 move = playerCamera.transform.right * x + playerCamera.transform.forward * z;
-        move.y = 0; // Ensure the movement direction is on the same plane
+        Vector3 move = (playerCamera.transform.right * x + playerCamera.transform.forward * z).normalized;
+        move.y = 0; // Keep movement on the horizontal plane
 
         bool isMoving = move.magnitude > 0.1f;
 
-        // Sprint logic
+        // Sprint Logic
         if (Input.GetKey(KeyCode.LeftShift) && sprintTimeRemaining > 0 && isMoving)
         {
             isSprinting = true;
@@ -58,30 +58,21 @@ public class PlayerMovement : MonoBehaviour
         else
         {
             isSprinting = false;
-            if (sprintTimeRemaining < sprintDuration)
-            {
-                sprintTimeRemaining += Time.deltaTime;
-            }
-        }
-
-        // Ensure FOV returns to normal if sprint time is depleted
-        if (sprintTimeRemaining <= 0)
-        {
-            isSprinting = false;
+            sprintTimeRemaining = Mathf.Min(sprintDuration, sprintTimeRemaining + Time.deltaTime);
         }
 
         float currentSpeed = isSprinting ? sprintSpeed : speed;
 
-        // Check for stairs and handle climbing
+        // Stair Handling
         HandleStairs(ref move);
 
         controller.Move(move * currentSpeed * Time.deltaTime);
 
-        // Adjust FOV based on sprinting
+        // Adjust FOV smoothly
         float targetFOV = isSprinting ? sprintFOV : normalFOV;
         playerCamera.fieldOfView = Mathf.Lerp(playerCamera.fieldOfView, targetFOV, fovTransitionSpeed * Time.deltaTime);
 
-        // Apply gravity
+        // Apply Gravity
         velocity.y += gravity * Time.deltaTime;
         controller.Move(velocity * Time.deltaTime);
     }
@@ -89,14 +80,13 @@ public class PlayerMovement : MonoBehaviour
     void HandleStairs(ref Vector3 move)
     {
         RaycastHit hit;
-        Vector3 origin = transform.position + new Vector3(0, 0.5f, 0); // Adjust the ray origin height if necessary
+        Vector3 origin = transform.position + Vector3.up * 0.5f;
 
-        // Cast a ray forward to detect stairs
         if (Physics.Raycast(origin, transform.forward, out hit, 1f, stairsMask))
         {
             if (hit.collider != null)
             {
-                move.y = stepHeight; // Adjust the player's upward movement to simulate stair climbing
+                move.y = stepHeight;
             }
         }
     }
